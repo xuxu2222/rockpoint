@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>岩点 - 攀岩者的智能伴侣</title>
+<script src="https://modao.cc/agent-py/static/source/js/tailwindcss.js"></script>
+<script src="https://modao.cc/agent-py/static/source/js/iconify-icon.min.js"></script>
+<script src="https://modao.cc/agent-py/static/source/js/echarts.min.js"></script>
+<style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: #1a1a1a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+        .phone-container {
+            width: 390px;
+            height: 844px;
+            background: #F5F5F5;
+            border-radius: 40px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 8px solid #333;
+        }
+        .safe-area-bottom {
+            padding-bottom: 34px;
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .map-bg {
+            background-color: #e5e7eb;
+            background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .pulse-green { animation: pulse 2s infinite; box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); }
+        .pulse-yellow { animation: pulse-y 2s infinite; box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+        .pulse-red { animation: pulse-r 2s infinite; box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+        @keyframes pulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); } }
+        @keyframes pulse-y { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(255, 193, 7, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0); } }
+        @keyframes pulse-r { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); } }
+        
+        .modal-transition { transition: transform 0.3s ease-out; }
+        .modal-hidden { transform: translateY(100%); }
+        .modal-visible { transform: translateY(0); }
+    </style>
+</head>
+<body>
+<div class="phone-container flex flex-col">
+<!-- 顶部状态栏模拟 -->
+<div class="h-12 w-full flex justify-between items-center px-8 flex-none bg-transparent z-50">
+<span class="text-sm font-bold">9:41</span>
+<div class="flex gap-1.5 items-center">
+<iconify-icon class="text-lg" icon="mdi:signal"></iconify-icon>
+<iconify-icon class="text-lg" icon="mdi:wifi"></iconify-icon>
+<iconify-icon class="text-xl" icon="mdi:battery"></iconify-icon>
+</div>
+</div>
+<!-- 主内容区 -->
+<div class="flex-1 relative overflow-hidden" id="main-content">
+<!-- 页面1：发现页 (Discovery) -->
+<div class="absolute inset-0 flex flex-col" id="page-discovery">
+<div class="p-4 z-10">
+<div class="flex items-center gap-3 bg-white rounded-full px-4 py-2 shadow-lg">
+<iconify-icon class="text-gray-400 text-xl" icon="mdi:magnify"></iconify-icon>
+<input class="flex-1 bg-transparent outline-none text-sm" placeholder="搜索岩馆或地址..." type="text"/>
+<div class="w-px h-4 bg-gray-200"></div>
+<button class="flex items-center gap-1 text-[#4CAF50] font-bold text-sm">
+<iconify-icon icon="mdi:map-outline"></iconify-icon>
+                        地图
+                    </button>
+</div>
+<div class="mt-3 flex items-center gap-1 text-xs text-gray-600 bg-white/80 backdrop-blur-sm self-start px-3 py-1 rounded-full w-fit shadow-sm">
+<iconify-icon class="text-[#4CAF50]" icon="mdi:map-marker"></iconify-icon>
+                    上海市 静安区
+                </div>
+</div>
+<!-- 地图主体 -->
+<div class="flex-1 map-bg relative">
+<!-- 标记点 -->
+<div class="absolute top-1/4 left-1/3 cursor-pointer" onclick="showGymPreview('攀岩工厂')">
+<div class="w-10 h-10 bg-[#4CAF50] rounded-full border-4 border-white flex items-center justify-center pulse-green shadow-lg">
+<iconify-icon class="text-white" icon="mdi:climbing"></iconify-icon>
+</div>
+</div>
+<div class="absolute top-1/2 right-1/4 cursor-pointer" onclick="showGymPreview('岩时攀岩')">
+<div class="w-10 h-10 bg-yellow-500 rounded-full border-4 border-white flex items-center justify-center pulse-yellow shadow-lg">
+<iconify-icon class="text-white" icon="mdi:climbing"></iconify-icon>
+</div>
+</div>
+<div class="absolute bottom-1/3 left-1/4 cursor-pointer" onclick="showGymPreview('熊猫攀岩')">
+<div class="w-10 h-10 bg-red-500 rounded-full border-4 border-white flex items-center justify-center pulse-red shadow-lg">
+<iconify-icon class="text-white" icon="mdi:climbing"></iconify-icon>
+</div>
+</div>
+<!-- 底部悬浮约伴入口 -->
+<div class="absolute bottom-4 left-0 right-0 px-4">
+<div class="flex items-center justify-between mb-3">
+<span class="text-sm font-bold bg-white/90 px-3 py-1 rounded-full shadow-sm">附近热门约伴</span>
+<button class="w-10 h-10 bg-[#4CAF50] text-white rounded-full shadow-xl flex items-center justify-center">
+<iconify-icon class="text-2xl" icon="mdi:plus"></iconify-icon>
+</button>
+</div>
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+<div class="flex-none w-64 bg-white p-3 rounded-2xl shadow-md border border-gray-100">
+<div class="flex items-center gap-2 mb-2">
+<img alt="User avatar" class="w-6 h-6 rounded-full bg-gray-200" src="/agent-py/media/generated_images/2026-06-09/124ed85337af4efdbe9f440d36da1793.jpg"/>
+<span class="text-xs font-medium">求抱石搭档 · 今晚7点</span>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-sm font-bold text-gray-800">攀岩工厂 · V3水平</span>
+<span class="text-[10px] text-gray-400">1.2km</span>
+</div>
+</div>
+<div class="flex-none w-64 bg-white p-3 rounded-2xl shadow-md border border-gray-100 opacity-80">
+<div class="flex items-center gap-2 mb-2">
+<img alt="User avatar" class="w-6 h-6 rounded-full bg-gray-200" src="/agent-py/media/generated_images/2026-06-09/124ed85337af4efdbe9f440d36da1793.jpg"/>
+<span class="text-xs font-medium">寻找保护搭档 · 周末</span>
+</div>
+<div class="flex justify-between items-end">
+<span class="text-sm font-bold text-gray-800">岩时攀岩 · 5.11b</span>
+<span class="text-[10px] text-gray-400">2.5km</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 岩馆预览底部弹出卡片 -->
+<div class="hidden absolute bottom-0 left-0 right-0 bg-white p-5 rounded-t-[32px] shadow-[0_-10px_30px_rgba(0,0,0,0.1)] z-20 transition-all duration-300 transform translate-y-full" id="gym-preview-card">
+<div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-4"></div>
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-xl font-bold text-gray-900" id="preview-gym-name">攀岩工厂</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="px-2 py-0.5 bg-green-100 text-[#4CAF50] text-[10px] font-bold rounded">空闲中</span>
+<span class="text-xs text-gray-500">预计排队 &lt; 5分钟</span>
+</div>
+</div>
+<div class="text-right">
+<div class="text-[#4CAF50] font-bold">1.2km</div>
+<div class="text-[10px] text-gray-400">静安区江场路</div>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-3 mb-6">
+<div class="bg-gray-50 p-3 rounded-xl">
+<div class="text-[10px] text-gray-400 mb-1">本周新线</div>
+<div class="text-sm font-bold text-gray-800">8 条新线路</div>
+</div>
+<div class="bg-gray-50 p-3 rounded-xl">
+<div class="text-[10px] text-gray-400 mb-1">储物柜剩余</div>
+<div class="text-sm font-bold text-gray-800">12 / 40</div>
+</div>
+</div>
+<button class="w-full bg-[#4CAF50] text-white py-4 rounded-2xl font-bold shadow-lg shadow-green-200 active:scale-[0.98] transition-transform" onclick="openGymDetail()">
+                    查看详情
+                </button>
+</div>
+</div>
+<!-- 页面2：岩馆详情页 (Gym Detail) -->
+<div class="hidden absolute inset-0 bg-white z-30 flex flex-col overflow-y-auto hide-scrollbar" id="page-gym-detail">
+<div class="relative h-64 flex-none">
+<img alt="Gym interior" class="w-full h-full object-cover" src="/agent-py/media/generated_images/2026-06-09/8fb1614de8354ba297904a0a6ad29eb8.jpg"/>
+<div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-white"></div>
+<button class="absolute top-6 left-6 w-10 h-10 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white" onclick="closeGymDetail()">
+<iconify-icon class="text-2xl" icon="mdi:chevron-left"></iconify-icon>
+</button>
+<div class="absolute bottom-6 left-6">
+<h2 class="text-2xl font-extrabold text-gray-900">攀岩工厂 (静安店)</h2>
+<div class="flex gap-2 mt-2">
+<span class="bg-[#4CAF50] text-white text-[10px] px-2 py-0.5 rounded-full">抱石馆</span>
+<span class="bg-[#FF6B35] text-white text-[10px] px-2 py-0.5 rounded-full">人气王</span>
+</div>
+</div>
+</div>
+<div class="p-6">
+<!-- 拥挤度图表 -->
+<div class="mb-8">
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-bold text-gray-800">实时拥挤趋势</h4>
+<span class="text-xs text-gray-400">今日 07:00 - 22:00</span>
+</div>
+<div class="w-full h-32 bg-gray-50 rounded-2xl" id="crowd-chart"></div>
+</div>
+<!-- 线路库 -->
+<div class="mb-8">
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-bold text-gray-800">当前线路库 (32)</h4>
+<button class="text-xs text-[#4CAF50] font-bold">查看全部 &gt;</button>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<div class="p-3 border border-gray-100 rounded-xl flex items-center gap-3">
+<div class="w-2 h-10 rounded-full bg-purple-500"></div>
+<div>
+<div class="text-xs font-bold">动态彩虹</div>
+<div class="text-[10px] text-gray-400">V0 | 128人完攀</div>
+</div>
+</div>
+<div class="p-3 border border-gray-100 rounded-xl flex items-center gap-3">
+<div class="w-2 h-10 rounded-full bg-green-500"></div>
+<div>
+<div class="text-xs font-bold">平衡之刃</div>
+<div class="text-[10px] text-gray-400">V2 | 45人完攀</div>
+</div>
+</div>
+<div class="p-3 border border-gray-100 rounded-xl flex items-center gap-3">
+<div class="w-2 h-10 rounded-full bg-blue-500"></div>
+<div>
+<div class="text-xs font-bold">指力终结者</div>
+<div class="text-[10px] text-gray-400">V3 | 12人完攀</div>
+</div>
+</div>
+<div class="p-3 border border-gray-100 rounded-xl flex items-center gap-3">
+<div class="w-2 h-10 rounded-full bg-red-500"></div>
+<div>
+<div class="text-xs font-bold">天花板漫步</div>
+<div class="text-[10px] text-gray-400">V4 | 3人完攀</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 设施 -->
+<div class="mb-8">
+<h4 class="font-bold text-gray-800 mb-4">设施与服务</h4>
+<div class="grid grid-cols-5 gap-2 text-center">
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xl">🧰</div>
+<span class="text-[10px] text-gray-500">存包</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xl">🚿</div>
+<span class="text-[10px] text-gray-500">淋浴</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xl">👟</div>
+<span class="text-[10px] text-gray-500">租赁</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xl">💪</div>
+<span class="text-[10px] text-gray-500">指力板</span>
+</div>
+<div class="flex flex-col items-center gap-1">
+<div class="w-10 h-10 bg-gray-50 rounded-full flex items-center justify-center text-xl">📋</div>
+<span class="text-[10px] text-gray-500">训练区</span>
+</div>
+</div>
+</div>
+<!-- 约伴板块 -->
+<div class="mb-20">
+<button class="w-full bg-[#4CAF50] text-white py-4 rounded-2xl font-bold flex items-center justify-center gap-2 mb-6" onclick="toggleInviteModal(true)">
+                        在这约人一起爬 🤝
+                    </button>
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-bold text-gray-800">今日约爬 (5)</h4>
+</div>
+<div class="space-y-3">
+<div class="p-4 bg-orange-50/50 rounded-2xl border border-orange-100">
+<div class="flex items-center gap-3 mb-2">
+<img alt="Avatar" class="w-8 h-8 rounded-full border-2 border-white shadow-sm" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+<div class="flex-1">
+<div class="text-xs font-bold text-gray-800">攀岩老李</div>
+<div class="text-[10px] text-gray-500">今晚 18:00 - 20:00</div>
+</div>
+<span class="px-2 py-0.5 bg-orange-100 text-[#FF6B35] text-[10px] font-bold rounded">V3-V4</span>
+</div>
+<p class="text-xs text-gray-600">求保护搭档，今天想磕一下那条红色的新线。</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 页面3：训练页 (Training) -->
+<div class="hidden absolute inset-0 bg-[#0a0a0a] flex flex-col" id="page-training">
+<!-- 顶部状态 -->
+<div class="p-6 flex justify-between items-end">
+<div>
+<div class="text-gray-400 text-xs mb-1">今日训练</div>
+<div class="text-white text-3xl font-black">2 <span class="text-sm font-normal text-gray-500">次</span></div>
+</div>
+<div class="text-right">
+<div class="text-gray-400 text-xs mb-1">本月打卡</div>
+<div class="text-[#4CAF50] text-xl font-bold">12 <span class="text-xs font-normal">天</span></div>
+</div>
+</div>
+<!-- 录制区 -->
+<div class="flex-1 relative mx-4 rounded-[32px] overflow-hidden bg-gray-900 border border-gray-800">
+<!-- 模拟相机界面 -->
+<div class="absolute inset-0 flex items-center justify-center">
+<svg class="opacity-60" height="300" viewbox="0 0 100 150" width="200">
+<!-- 模拟火柴人骨架 -->
+<circle cx="50" cy="20" fill="none" r="5" stroke="#4CAF50" stroke-width="1.5"></circle>
+<line stroke="#4CAF50" stroke-width="1.5" x1="50" x2="50" y1="25" y2="60"></line>
+<line stroke="#4CAF50" stroke-width="1.5" x1="50" x2="30" y1="35" y2="20"></line>
+<line stroke="#4CAF50" stroke-width="1.5" x1="50" x2="75" y1="35" y2="45"></line>
+<line stroke="#4CAF50" stroke-width="1.5" x1="50" x2="35" y1="60" y2="90"></line>
+<line stroke="#4CAF50" stroke-width="1.5" x1="50" x2="65" y1="60" y2="85"></line>
+<!-- 识别点 -->
+<circle cx="75" cy="45" fill="#FF6B35" r="3"></circle>
+<circle cx="35" cy="90" fill="#2196F3" r="3"></circle>
+</svg>
+<!-- 识别框 -->
+<div class="absolute inset-10 border border-[#4CAF50]/30 rounded-lg">
+<div class="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-[#4CAF50]"></div>
+<div class="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-[#4CAF50]"></div>
+<div class="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-[#4CAF50]"></div>
+<div class="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-[#4CAF50]"></div>
+</div>
+</div>
+<!-- 模式切换 -->
+<div class="absolute top-6 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md p-1 rounded-full flex gap-1 border border-white/10">
+<button class="px-4 py-1.5 rounded-full bg-[#4CAF50] text-white text-xs font-bold">抱石录制</button>
+<button class="px-4 py-1.5 rounded-full text-gray-400 text-xs">难度线路</button>
+</div>
+<!-- 录制按钮 -->
+<div class="absolute bottom-8 left-1/2 -translate-x-1/2">
+<button class="w-16 h-16 rounded-full border-4 border-white flex items-center justify-center p-1" onclick="startAILoading()">
+<div class="w-full h-full bg-red-500 rounded-full"></div>
+</button>
+<div class="text-white text-[10px] text-center mt-2 opacity-60">点击开始 AI 动作分析</div>
+</div>
+</div>
+<!-- 底部日记 -->
+<div class="p-6">
+<div class="flex justify-between items-center mb-4">
+<span class="text-white font-bold">训练日记</span>
+<span class="text-gray-500 text-xs">2026年6月</span>
+</div>
+<div class="flex justify-between">
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">一</span>
+<div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white text-xs">8</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">二</span>
+<div class="w-8 h-8 rounded-lg bg-[#4CAF50]/30 border border-[#4CAF50]/50 flex items-center justify-center text-white text-xs">9</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">三</span>
+<div class="w-8 h-8 rounded-lg bg-[#4CAF50] flex items-center justify-center text-white text-xs">10</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">四</span>
+<div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white text-xs">11</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">五</span>
+<div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white text-xs">12</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">六</span>
+<div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white text-xs">13</div>
+</div>
+<div class="flex flex-col items-center gap-2">
+<span class="text-[10px] text-gray-500">日</span>
+<div class="w-8 h-8 rounded-lg bg-gray-800 flex items-center justify-center text-white text-xs">14</div>
+</div>
+</div>
+</div>
+<!-- 分析报告弹窗 (Hidden by default) -->
+<div class="hidden absolute inset-0 bg-white z-50 flex flex-col p-6 overflow-y-auto" id="analysis-report">
+<div class="flex justify-between items-center mb-6">
+<h2 class="text-xl font-black text-gray-900">动作分析报告</h2>
+<button class="text-gray-400 text-2xl" onclick="closeAnalysis()">
+<iconify-icon icon="mdi:close"></iconify-icon>
+</button>
+</div>
+<div class="bg-gray-50 p-6 rounded-[32px] mb-6 flex items-center justify-between">
+<div>
+<div class="text-gray-400 text-xs mb-1">综合评分</div>
+<div class="text-4xl font-black text-[#4CAF50]">7.2</div>
+<div class="flex text-orange-400 text-xs mt-1">
+<iconify-icon icon="mdi:star"></iconify-icon>
+<iconify-icon icon="mdi:star"></iconify-icon>
+<iconify-icon icon="mdi:star"></iconify-icon>
+<iconify-icon icon="mdi:star"></iconify-icon>
+<iconify-icon icon="mdi:star-outline"></iconify-icon>
+</div>
+</div>
+<div class="w-32 h-32" id="radar-chart"></div>
+</div>
+<h4 class="font-bold mb-3">关键动作诊断</h4>
+<div class="flex gap-3 overflow-x-auto hide-scrollbar mb-6">
+<div class="flex-none w-32 p-3 bg-yellow-50 rounded-2xl border border-yellow-100">
+<div class="text-yellow-600 text-[10px] font-bold mb-1">膝外翻锁死</div>
+<div class="text-xs text-gray-500">稳定性提升 15%</div>
+</div>
+<div class="flex-none w-32 p-3 bg-red-50 rounded-2xl border border-red-100">
+<div class="text-red-600 text-[10px] font-bold mb-1">左侧挂脚未用</div>
+<div class="text-xs text-gray-500">核心张力流失</div>
+</div>
+<div class="flex-none w-32 p-3 bg-yellow-50 rounded-2xl border border-yellow-100">
+<div class="text-yellow-600 text-[10px] font-bold mb-1">砰脚点过早</div>
+<div class="text-xs text-gray-500">精准度需加强</div>
+</div>
+</div>
+<h4 class="font-bold mb-3">推荐微课</h4>
+<div class="space-y-3">
+<div class="flex items-center gap-4 bg-gray-50 p-3 rounded-2xl">
+<img alt="Course" class="w-16 h-12 rounded-lg object-cover" src="/agent-py/media/generated_images/2026-06-09/82b20a3e089943e58fc3cde3d9b82b26.jpg"/>
+<div class="flex-1">
+<div class="text-sm font-bold">挂脚稳定性训练</div>
+<div class="text-[10px] text-gray-400">进阶 · 15分钟</div>
+</div>
+<iconify-icon class="text-2xl text-[#4CAF50]" icon="mdi:play-circle"></iconify-icon>
+</div>
+</div>
+</div>
+</div>
+<!-- 页面4：消息页 (Messages) -->
+<div class="hidden absolute inset-0 bg-white flex flex-col" id="page-messages">
+<div class="p-6 flex-none">
+<h2 class="text-2xl font-black text-gray-900 mb-6">消息</h2>
+<div class="flex bg-gray-100 p-1 rounded-xl">
+<button class="flex-1 py-2 rounded-lg text-sm font-bold bg-white shadow-sm transition-all" id="tab-msg-system" onclick="switchMessageTab('system')">系统通知</button>
+<button class="flex-1 py-2 rounded-lg text-sm font-bold text-gray-500 transition-all" id="tab-msg-chat" onclick="switchMessageTab('chat')">约伴对话</button>
+</div>
+</div>
+<!-- 列表容器 -->
+<div class="flex-1 overflow-y-auto px-6 space-y-4" id="msg-list">
+<!-- 系统通知 -->
+<div class="space-y-4" id="msg-content-system">
+<div class="flex gap-4 items-start">
+<div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center text-xl">🔔</div>
+<div class="flex-1 border-b border-gray-50 pb-4">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold">新线提醒</span>
+<span class="text-[10px] text-gray-400">2小时前</span>
+</div>
+<p class="text-xs text-gray-500">攀岩工厂今晚更新了 6 条 V2-V4 线路，快去磕线吧！</p>
+</div>
+</div>
+<div class="flex gap-4 items-start">
+<div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl">🤝</div>
+<div class="flex-1 border-b border-gray-50 pb-4">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold">约伴成功</span>
+<span class="text-[10px] text-gray-400">昨天</span>
+</div>
+<p class="text-xs text-gray-500">你的约伴请求已被“小张”接受，点击开始沟通。</p>
+</div>
+</div>
+</div>
+<!-- 约伴对话 (Default hidden) -->
+<div class="hidden space-y-4" id="msg-content-chat">
+<div class="flex gap-4 items-center" onclick="enterChat('小张')">
+<div class="relative">
+<img alt="Avatar" class="w-12 h-12 rounded-full bg-gray-200" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+<div class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full text-[8px] text-white flex items-center justify-center font-bold">1</div>
+</div>
+<div class="flex-1 border-b border-gray-50 pb-4">
+<div class="flex justify-between items-center mb-1">
+<span class="text-sm font-bold">小张</span>
+<span class="text-[10px] text-gray-400">1小时前</span>
+</div>
+<p class="text-xs text-gray-500 truncate">好的，今晚7点岩时见！</p>
+</div>
+</div>
+</div>
+</div>
+<!-- 模拟聊天界面 (Hidden) -->
+<div class="hidden absolute inset-0 bg-white z-50 flex flex-col" id="chat-view">
+<div class="p-4 border-b flex items-center gap-4">
+<button class="text-2xl text-gray-400" onclick="exitChat()">
+<iconify-icon icon="mdi:chevron-left"></iconify-icon>
+</button>
+<div class="flex items-center gap-2">
+<img alt="Avatar" class="w-8 h-8 rounded-full" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+<span class="font-bold" id="chat-title">小张</span>
+</div>
+</div>
+<div class="flex-1 bg-gray-50 p-6 space-y-4 overflow-y-auto">
+<div class="flex gap-2 max-w-[80%]">
+<img alt="Avatar" class="w-8 h-8 rounded-full self-end" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+<div class="bg-white p-3 rounded-2xl rounded-bl-none shadow-sm text-sm text-gray-700">
+                            你好，看到你在约伴，我今晚也在攀岩工厂。
+                        </div>
+</div>
+<div class="flex gap-2 max-w-[80%] self-end flex-row-reverse">
+<div class="bg-[#4CAF50] p-3 rounded-2xl rounded-br-none shadow-sm text-sm text-white">
+                            太好了！我打算磕那条蓝色的 V3。
+                        </div>
+</div>
+<div class="flex gap-2 max-w-[80%]">
+<img alt="Avatar" class="w-8 h-8 rounded-full self-end" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+<div class="bg-white p-3 rounded-2xl rounded-bl-none shadow-sm text-sm text-gray-700">
+                            好的，今晚7点岩时见！
+                        </div>
+</div>
+</div>
+<div class="p-4 bg-white border-t flex gap-3 items-center">
+<div class="flex-1 bg-gray-100 rounded-full px-4 py-2 text-sm text-gray-400">输入消息...</div>
+<button class="w-10 h-10 bg-[#4CAF50] text-white rounded-full flex items-center justify-center">
+<iconify-icon class="text-xl" icon="mdi:send"></iconify-icon>
+</button>
+</div>
+</div>
+</div>
+<!-- 页面5：我的 (Profile) -->
+<div class="hidden absolute inset-0 bg-white flex flex-col overflow-y-auto hide-scrollbar" id="page-profile">
+<div class="p-8 bg-gradient-to-br from-[#4CAF50] to-[#2E7D32] text-white rounded-b-[40px]">
+<div class="flex items-center gap-4 mb-8">
+<div class="w-20 h-20 rounded-full border-4 border-white/30 p-1">
+<img alt="Avatar" class="w-full h-full rounded-full bg-white/20" src="/agent-py/media/generated_images/2026-06-09/6fdb085be798434384d8916ad2c4d564.jpg"/>
+</div>
+<div>
+<h2 class="text-2xl font-black">攀岩老李</h2>
+<div class="flex items-center gap-2 mt-1 opacity-80">
+<span class="text-xs bg-black/20 px-2 py-0.5 rounded">LV.12</span>
+<span class="text-xs">积分: 2,480</span>
+</div>
+</div>
+<button class="ml-auto text-2xl">
+<iconify-icon icon="mdi:cog-outline"></iconify-icon>
+</button>
+</div>
+<div class="grid grid-cols-3 gap-4 bg-white/10 backdrop-blur-md rounded-2xl p-4">
+<div class="text-center">
+<div class="text-xl font-black">68</div>
+<div class="text-[10px] opacity-70">总训练</div>
+</div>
+<div class="text-center border-x border-white/10">
+<div class="text-xl font-black">42</div>
+<div class="text-[10px] opacity-70">完攀线路</div>
+</div>
+<div class="text-center">
+<div class="text-xl font-black">15</div>
+<div class="text-[10px] opacity-70">约伴次数</div>
+</div>
+</div>
+</div>
+<div class="p-6 space-y-8">
+<!-- 技能徽章 -->
+<div>
+<div class="flex justify-between items-center mb-4">
+<h4 class="font-bold text-gray-800">技能徽章</h4>
+<span class="text-xs text-gray-400">12/24</span>
+</div>
+<div class="flex gap-4 overflow-x-auto hide-scrollbar">
+<div class="flex-none w-20 flex flex-col items-center gap-2">
+<div class="w-16 h-16 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-2xl rotate-3 flex items-center justify-center text-3xl shadow-lg">🧗</div>
+<span class="text-[10px] font-bold text-gray-600">挂脚大师</span>
+</div>
+<div class="flex-none w-20 flex flex-col items-center gap-2">
+<div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-2xl -rotate-2 flex items-center justify-center text-3xl shadow-lg">⚡</div>
+<span class="text-[10px] font-bold text-gray-600">动态王者</span>
+</div>
+<div class="flex-none w-20 flex flex-col items-center gap-2">
+<div class="w-16 h-16 bg-gradient-to-br from-green-400 to-teal-500 rounded-2xl rotate-6 flex items-center justify-center text-3xl shadow-lg">🔋</div>
+<span class="text-[10px] font-bold text-gray-600">耐力之星</span>
+</div>
+</div>
+</div>
+<!-- 学习进度 -->
+<div>
+<h4 class="font-bold text-gray-800 mb-4">学习中的微课</h4>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-gray-600">挂脚稳定性训练</span>
+<span class="text-[#4CAF50] font-bold">60%</span>
+</div>
+<div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+<div class="w-[60%] h-full bg-[#4CAF50]"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between text-xs mb-1">
+<span class="text-gray-600">动态出手时机</span>
+<span class="text-[#4CAF50] font-bold">30%</span>
+</div>
+<div class="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+<div class="w-[30%] h-full bg-[#4CAF50]"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- 我的装备 -->
+<div>
+<h4 class="font-bold text-gray-800 mb-4">我的装备</h4>
+<div class="bg-gray-50 p-4 rounded-2xl flex items-center gap-4">
+<div class="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-2xl shadow-sm">👟</div>
+<div class="flex-1">
+<div class="text-sm font-bold">La Sportiva Solution</div>
+<div class="text-[10px] text-gray-400">使用时长: 86小时</div>
+</div>
+<button class="px-3 py-1.5 bg-orange-100 text-[#FF6B35] text-[10px] font-bold rounded-full">提醒换底</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 底部 Tab Bar -->
+<div class="h-20 bg-white border-t border-gray-100 flex-none flex items-center justify-around px-4 safe-area-bottom z-40">
+<button class="flex flex-col items-center gap-1 text-[#4CAF50]" id="tab-discovery" onclick="switchTab('discovery')">
+<iconify-icon class="text-2xl" icon="mdi:mountain"></iconify-icon>
+<span class="text-[10px] font-bold">发现</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400" id="tab-training" onclick="switchTab('training')">
+<iconify-icon class="text-2xl" icon="mdi:arm-flex"></iconify-icon>
+<span class="text-[10px] font-bold">训练</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400" id="tab-messages" onclick="switchTab('messages')">
+<iconify-icon class="text-2xl" icon="mdi:chat"></iconify-icon>
+<span class="text-[10px] font-bold">消息</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-gray-400" id="tab-profile" onclick="switchTab('profile')">
+<iconify-icon class="text-2xl" icon="mdi:account"></iconify-icon>
+<span class="text-[10px] font-bold">我的</span>
+</button>
+</div>
+<!-- 约伴弹窗 (Half Screen Modal) -->
+<div class="hidden absolute inset-0 bg-black/40 z-[60] backdrop-blur-sm transition-opacity opacity-0" id="invite-modal-overlay">
+<div class="absolute bottom-0 left-0 right-0 bg-white rounded-t-[40px] p-8 modal-transition modal-hidden" id="invite-modal">
+<div class="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8"></div>
+<h3 class="text-xl font-black text-gray-900 mb-6">发布约伴请求</h3>
+<div class="space-y-6">
+<div>
+<label class="text-xs font-bold text-gray-400 block mb-3 uppercase tracking-wider">约伴类型</label>
+<div class="flex gap-2">
+<button class="flex-1 py-3 rounded-2xl bg-green-50 text-[#4CAF50] border-2 border-[#4CAF50] text-xs font-bold">保护搭档 🧗</button>
+<button class="flex-1 py-3 rounded-2xl bg-gray-50 text-gray-500 border-2 border-transparent text-xs font-bold">一起磕线 🎯</button>
+<button class="flex-1 py-3 rounded-2xl bg-gray-50 text-gray-500 border-2 border-transparent text-xs font-bold">野攀搭子 🏔️</button>
+</div>
+</div>
+<div class="flex gap-4">
+<div class="flex-1">
+<label class="text-xs font-bold text-gray-400 block mb-2 uppercase tracking-wider">开始时间</label>
+<div class="bg-gray-50 p-3 rounded-xl text-sm font-bold">18:00</div>
+</div>
+<div class="flex-1">
+<label class="text-xs font-bold text-gray-400 block mb-2 uppercase tracking-wider">结束时间</label>
+<div class="bg-gray-50 p-3 rounded-xl text-sm font-bold">20:00</div>
+</div>
+</div>
+<div>
+<label class="text-xs font-bold text-gray-400 block mb-3 uppercase tracking-wider">水平标签 (可多选)</label>
+<div class="flex flex-wrap gap-2">
+<span class="px-4 py-2 bg-gray-50 rounded-full text-xs font-medium text-gray-600">V0-V2</span>
+<span class="px-4 py-2 bg-[#4CAF50] rounded-full text-xs font-bold text-white shadow-md shadow-green-100">V3-V4</span>
+<span class="px-4 py-2 bg-gray-50 rounded-full text-xs font-medium text-gray-600">V5-V6</span>
+<span class="px-4 py-2 bg-gray-50 rounded-full text-xs font-medium text-gray-600">V7+</span>
+</div>
+</div>
+<div>
+<label class="text-xs font-bold text-gray-400 block mb-2 uppercase tracking-wider">备注 (可选)</label>
+<textarea class="w-full bg-gray-50 rounded-2xl p-4 text-sm outline-none h-20 resize-none" placeholder="说点什么..."></textarea>
+</div>
+</div>
+<div class="flex gap-4 mt-8">
+<button class="flex-1 py-4 text-gray-400 font-bold" onclick="toggleInviteModal(false)">取消</button>
+<button class="flex-[2] py-4 bg-[#4CAF50] text-white rounded-2xl font-bold shadow-lg shadow-green-200" onclick="submitInvite()">发布</button>
+</div>
+</div>
+</div>
+<!-- 全局加载遮罩 (用于AI分析模拟) -->
+<div class="hidden absolute inset-0 bg-black/80 z-[100] flex flex-col items-center justify-center text-white" id="ai-loading">
+<div class="relative w-24 h-24 mb-6">
+<div class="absolute inset-0 border-4 border-[#4CAF50]/20 rounded-full"></div>
+<div class="absolute inset-0 border-4 border-[#4CAF50] rounded-full border-t-transparent animate-spin"></div>
+<iconify-icon class="absolute inset-0 flex items-center justify-center text-4xl text-[#4CAF50]" icon="mdi:brain"></iconify-icon>
+</div>
+<div class="text-lg font-bold mb-2">AI 动作分析中...</div>
+<div class="text-xs text-gray-400 animate-pulse">正在识别骨架关键点</div>
+</div>
+</div>
+<script>
+    let currentTab = 'discovery';
+    let charts = {};
+
+    // 页面切换逻辑
+    function switchTab(tab) {
+        // 隐藏所有页面
+        document.querySelectorAll('#main-content > div').forEach(div => div.classList.add('hidden'));
+        // 移除所有Tab激活样式
+        document.querySelectorAll('button[id^="tab-"]').forEach(btn => {
+            btn.classList.remove('text-[#4CAF50]');
+            btn.classList.add('text-gray-400');
+        });
+
+        // 显示目标页
+        document.getElementById(`page-${tab}`).classList.remove('hidden');
+        document.getElementById(`tab-${tab}`).classList.add('text-[#4CAF50]');
+        document.getElementById(`tab-${tab}`).classList.remove('text-gray-400');
+
+        currentTab = tab;
+        
+        // 如果切到训练页，延迟初始化雷达图（如果已生成报告）
+        if (tab === 'training' && document.getElementById('analysis-report').classList.contains('hidden') === false) {
+            initRadarChart();
+        }
+    }
+
+    // 发现页交互
+    function showGymPreview(name) {
+        document.getElementById('preview-gym-name').innerText = name;
+        const card = document.getElementById('gym-preview-card');
+        card.classList.remove('hidden');
+        setTimeout(() => {
+            card.classList.remove('translate-y-full');
+        }, 10);
+    }
+
+    function openGymDetail() {
+        document.getElementById('page-gym-detail').classList.remove('hidden');
+        initCrowdChart();
+    }
+
+    function closeGymDetail() {
+        document.getElementById('page-gym-detail').classList.add('hidden');
+    }
+
+    // 图表初始化
+    function initCrowdChart() {
+        if (!charts.crowd) {
+            charts.crowd = echarts.init(document.getElementById('crowd-chart'));
+        }
+        const option = {
+            grid: { top: 10, bottom: 20, left: 10, right: 10 },
+            xAxis: {
+                type: 'category',
+                data: ['07', '10', '13', '16', '19', '22'],
+                axisLine: { show: false },
+                axisTick: { show: false },
+                axisLabel: { color: '#999', fontSize: 10 }
+            },
+            yAxis: { show: false },
+            series: [{
+                data: [20, 45, 80, 65, 95, 30],
+                type: 'line',
+                smooth: true,
+                symbol: 'none',
+                lineStyle: { color: '#FF6B35', width: 3 },
+                areaStyle: {
+                    color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                        { offset: 0, color: 'rgba(255, 107, 53, 0.2)' },
+                        { offset: 1, color: 'rgba(255, 107, 53, 0)' }
+                    ])
+                }
+            }]
+        };
+        charts.crowd.setOption(option);
+    }
+
+    function initRadarChart() {
+        if (!charts.radar) {
+            charts.radar = echarts.init(document.getElementById('radar-chart'));
+        }
+        const option = {
+            radar: {
+                indicator: [
+                    { name: '力量', max: 100 },
+                    { name: '张力', max: 100 },
+                    { name: '读线', max: 100 },
+                    { name: '协调', max: 100 },
+                    { name: '控制', max: 100 }
+                ],
+                shape: 'circle',
+                splitNumber: 3,
+                axisName: { show: false },
+                splitLine: { lineStyle: { color: 'rgba(76, 175, 80, 0.2)' } },
+                splitArea: { show: false },
+                axisLine: { lineStyle: { color: 'rgba(76, 175, 80, 0.2)' } }
+            },
+            series: [{
+                type: 'radar',
+                data: [{
+                    value: [70, 60, 85, 50, 75],
+                    symbol: 'none',
+                    itemStyle: { color: '#4CAF50' },
+                    areaStyle: { color: 'rgba(76, 175, 80, 0.5)' }
+                }]
+            }]
+        };
+        charts.radar.setOption(option);
+    }
+
+    // 训练页交互
+    function startAILoading() {
+        const loading = document.getElementById('ai-loading');
+        loading.classList.remove('hidden');
+        setTimeout(() => {
+            loading.classList.add('hidden');
+            document.getElementById('analysis-report').classList.remove('hidden');
+            initRadarChart();
+        }, 2500);
+    }
+
+    function closeAnalysis() {
+        document.getElementById('analysis-report').classList.add('hidden');
+    }
+
+    // 约伴弹窗
+    function toggleInviteModal(show) {
+        const overlay = document.getElementById('invite-modal-overlay');
+        const modal = document.getElementById('invite-modal');
+        if (show) {
+            overlay.classList.remove('hidden');
+            setTimeout(() => {
+                overlay.classList.add('opacity-100');
+                modal.classList.remove('modal-hidden');
+                modal.classList.add('modal-visible');
+            }, 10);
+        } else {
+            overlay.classList.remove('opacity-100');
+            modal.classList.remove('modal-visible');
+            modal.classList.add('modal-hidden');
+            setTimeout(() => {
+                overlay.classList.add('hidden');
+            }, 300);
+        }
+    }
+
+    function submitInvite() {
+        toggleInviteModal(false);
+        // 模拟成功反馈
+        alert('发布成功！');
+    }
+
+    // 消息页交互
+    function switchMessageTab(tab) {
+        document.getElementById('msg-content-system').classList.toggle('hidden', tab !== 'system');
+        document.getElementById('msg-content-chat').classList.toggle('hidden', tab !== 'chat');
+        
+        const sysBtn = document.getElementById('tab-msg-system');
+        const chatBtn = document.getElementById('tab-msg-chat');
+        
+        if (tab === 'system') {
+            sysBtn.classList.add('bg-white', 'shadow-sm');
+            sysBtn.classList.remove('text-gray-500');
+            chatBtn.classList.remove('bg-white', 'shadow-sm');
+            chatBtn.classList.add('text-gray-500');
+        } else {
+            chatBtn.classList.add('bg-white', 'shadow-sm');
+            chatBtn.classList.remove('text-gray-500');
+            sysBtn.classList.remove('bg-white', 'shadow-sm');
+            sysBtn.classList.add('text-gray-500');
+        }
+    }
+
+    function enterChat(name) {
+        document.getElementById('chat-title').innerText = name;
+        document.getElementById('chat-view').classList.remove('hidden');
+    }
+
+    function exitChat() {
+        document.getElementById('chat-view').classList.add('hidden');
+    }
+
+    // 初始化显示
+    window.onload = () => {
+        switchTab('discovery');
+    };
+</script>
+</body>
+</html>
